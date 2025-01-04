@@ -1,21 +1,95 @@
-import Image from 'next/image'
-import { Inter } from 'next/font/google'
+import { useState, useEffect } from 'react';
+import { Inter } from 'next/font/google';
+import { Input, Button, message } from 'antd';
+import { useRouter } from 'next/router';
+import axios from 'axios';
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin'] });
 
 export default function Home() {
+  const [formData, setFormData] = useState({ name: '', token: '' });
+  const [loading, setLoading] = useState<boolean>(false);
+  const router = useRouter();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const validateToken = async (accessToken: string) => {
+    try {
+      const response = await axios.get(
+        `https://gorest.co.in/public/v2/posts?access-token=${accessToken}`
+      );
+      return response.status === 200;
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Error Fetching Data');
+    }
+  };
+
+  const handleGo = async () => {
+    const { name, token } = formData;
+
+    setLoading(true);
+    const isValid = await validateToken(token);
+    setLoading(false);
+
+    if (isValid) {
+      sessionStorage.setItem('name', name);
+      sessionStorage.setItem('access_token', token);
+      router.push('/posts');
+    }
+  };
+
+  useEffect(() => {
+    const token = sessionStorage.getItem('access_token');
+    if (token) {
+      router.push('/posts');
+    }
+  }, []);
+
   return (
     <main
       className={`flex min-h-screen flex-col items-center justify-between p-24 ${inter.className}`}
     >
+      <div className="relative flex place-items-center w-[50%] p-8 border border-gray-300 rounded-md shadow">
+        <div className="flex flex-col items-center justify-center space-y-8 w-full">
+          <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 lg:static lg:w-auto lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4">
+            Welcome&nbsp;
+            <code className="font-mono font-bold">Post App</code>
+          </p>
+          <p className="!mt-1">Go to a list!</p>
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700/10 after:dark:from-sky-900 after:dark:via-[#0141ff]/40 before:lg:h-[360px]">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Welcome&nbsp;
-          <code className="font-mono font-bold">Post App</code>
-        </p>
+          <div className="w-full flex flex-col space-y-4">
+            <Input
+              size="large"
+              name="name"
+              placeholder="Name"
+              onChange={handleChange}
+              value={formData.name}
+              aria-label="Name"
+            />
+            <Input
+              size="large"
+              name="token"
+              placeholder="Go Rest Token"
+              onChange={handleChange}
+              value={formData.token}
+              aria-label="Go Rest Token"
+            />
+            <Button
+              loading={loading}
+              type="primary"
+              size="large"
+              onClick={handleGo}
+              disabled={!formData.name || !formData.token}
+              className="disabled:!bg-[#8dbaef] disabled:!text-white"
+            >
+              Go!
+            </Button>
+          </div>
+        </div>
       </div>
-
     </main>
-  )
+  );
 }
