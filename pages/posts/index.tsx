@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '@/lib/axios';
 import { List, Spin, Pagination, Modal, Button, message, Input, Form } from 'antd';
 import { DeleteOutlined, ExclamationCircleOutlined, EditOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
@@ -11,7 +11,12 @@ type Post = {
   body: string;
 };
 
-const fetchPosts = async (page: number, perPage: number, token: string | null): Promise<Post[]> => {
+const fetchPosts = async ({
+  queryKey,
+}: {
+  queryKey: [string, number, number, string | null];
+}): Promise<Post[]> => {
+  const [, page, perPage, token] = queryKey;
   if (!token) {
     throw new Error('Token is required');
   }
@@ -26,7 +31,13 @@ const fetchPosts = async (page: number, perPage: number, token: string | null): 
   return response.data;
 };
 
-const createPost = async (token: string, data: { user_id: number | null; title: string; body: string }) => {
+const createPost = async ({
+  token,
+  data,
+}: {
+  token: string;
+  data: { user_id: number | null; title: string; body: string };
+}) => {
   const response = await axiosInstance.post(`/posts`, data, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -36,7 +47,15 @@ const createPost = async (token: string, data: { user_id: number | null; title: 
   return response.data;
 };
 
-const updatePost = async (id: number, token: string, data: { title: string; body: string }) => {
+const updatePost = async ({
+  id,
+  token,
+  data,
+}: {
+  id: number;
+  token: string;
+  data: { title: string; body: string };
+}) => {
   await axiosInstance.put(`/posts/${id}`, data, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -45,7 +64,7 @@ const updatePost = async (id: number, token: string, data: { title: string; body
   });
 };
 
-const deletePost = async (id: number, token: string) => {
+const deletePost = async ({ id, token }: { id: number; token: string }) => {
   await axiosInstance.delete(`/posts/${id}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -64,6 +83,7 @@ const Posts = () => {
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState<boolean>(false);
   
+  const queryClient = useQueryClient();
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
 
@@ -76,10 +96,46 @@ const Posts = () => {
     setUserId(userId ? Number(userId) : null);
   }, []);
 
-  const { data, isLoading, isError, error, refetch } = useQuery<Post[]>({
-    queryKey: ['posts', currentPage, perPage],
-    queryFn: () => fetchPosts(currentPage, perPage, token || ''),
+  const { data: posts, isLoading, isError, error, refetch } = useQuery<Post[]>({
+    queryKey: ['posts', currentPage, perPage, token],
+    queryFn: fetchPosts,
     enabled: !!token,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: createPost,
+    onSuccess: () => {
+      message.success('Post created successfully');
+      setIsCreateModalVisible(false);
+      createForm.resetFields();
+      queryClient.invalidateQueries(['posts']);
+    },
+    onError: () => {
+      message.error('Failed to create the post. Please try again.');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: updatePost,
+    onSuccess: () => {
+      message.success('Post updated successfully');
+      setEditingPostId(null);
+      queryClient.invalidateQueries(['posts']);
+    },
+    onError: () => {
+      message.error('Failed to update the post. Please try again.');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deletePost,
+    onSuccess: () => {
+      message.success('Post deleted successfully');
+      queryClient.invalidateQueries(['posts']);
+    },
+    onError: () => {
+      message.error('Failed to delete the post. Please try again.');
+    },
   });
 
   const handlePageChange = (page: number, pageSize?: number) => {
@@ -103,18 +159,12 @@ const Posts = () => {
   const handleCreatePost = async () => {
     try {
       const values = await createForm.validateFields();
-      const postData = {
-        user_id: userId,
-        title: values.title,
-        body: values.body,
-      }
-      await createPost(token as string, postData);
-      message.success('Post created successfully');
-      setIsCreateModalVisible(false);
-      createForm.resetFields();
-      refetch();
+      createMutation.mutate({
+        token: token as string,
+        data: { user_id: userId, title: values.title, body: values.body },
+      });
     } catch (err) {
-      message.error('Failed to create the post. Please try again.');
+      message.error('Validation failed. Please try again.');
     }
   };
 
@@ -130,12 +180,13 @@ const Posts = () => {
   const handleEditSave = async (id: number) => {
     try {
       const values = await editForm.validateFields();
-      await updatePost(id, token as string, values);
-      message.success('Post updated successfully');
-      setEditingPostId(null);
-      refetch();
+      updateMutation.mutate({
+        id,
+        token: token as string,
+        data: values,
+      });
     } catch (err) {
-      message.error('Failed to update the post. Please try again.');
+      message.error('Validation failed. Please try again.');
     }
   };
 
@@ -145,15 +196,7 @@ const Posts = () => {
       icon: <ExclamationCircleOutlined />,
       okText: 'Yes',
       cancelText: 'No',
-      onOk: async () => {
-        try {
-          await deletePost(id, token as string);
-          message.success('Post deleted successfully');
-          refetch();
-        } catch (err) {
-          message.error('Failed to delete the post. Please try again.');
-        }
-      },
+      onOk: () => deleteMutation.mutate({ id, token: token as string }),
     });
   };
 
@@ -180,7 +223,7 @@ const Posts = () => {
       </div>
       <List
         bordered
-        dataSource={data}
+        dataSource={posts}
         renderItem={(item) => (
           <List.Item>
             {editingPostId === item.id ? (
