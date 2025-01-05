@@ -67,9 +67,9 @@ const Posts = () => {
     const name = sessionStorage.getItem('name');
     const accessToken = sessionStorage.getItem('access_token');
     const userId = sessionStorage.getItem('user_id');
-    setName(name);
-    setUserId(userId);
-    setToken(accessToken);
+    setName(name || '');
+    setToken(accessToken || '');
+    setUserId(userId ? Number(userId) : null);
   }, []);
 
   const { data, isLoading, isError, error, refetch } = useQuery<Post[]>({
