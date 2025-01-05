@@ -11,7 +11,11 @@ type Post = {
   body: string;
 };
 
-const fetchPosts = async (page: number, perPage: number, token: string): Promise<Post[]> => {
+const fetchPosts = async (page: number, perPage: number, token: string | null): Promise<Post[]> => {
+  if (!token) {
+    throw new Error('Token is required');
+  }
+
   const response = await axiosInstance.get(`/posts`, {
     params: {
       'access-token': token,
