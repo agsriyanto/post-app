@@ -26,7 +26,7 @@ const fetchPosts = async (page: number, perPage: number, token: string | null): 
   return response.data;
 };
 
-const createPost = async (token: string, data: { user_id: number; title: string; body: string }) => {
+const createPost = async (token: string, data: { user_id: number | null; title: string; body: string }) => {
   const response = await axiosInstance.post(`/posts`, data, {
     headers: {
       Authorization: `Bearer ${token}`,
