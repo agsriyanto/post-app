@@ -74,7 +74,7 @@ const Posts = () => {
 
   const { data, isLoading, isError, error, refetch } = useQuery<Post[]>({
     queryKey: ['posts', currentPage, perPage],
-    queryFn: () => fetchPosts(currentPage, perPage, token),
+    queryFn: () => fetchPosts(currentPage, perPage, token || ''),
     enabled: !!token,
   });
 
