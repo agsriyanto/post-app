@@ -19,8 +19,10 @@ export default function Home() {
   const validateToken = async (accessToken: string) => {
     try {
       const response = await axios.get(
-        `https://gorest.co.in/public/v2/posts?access-token=${accessToken}`
+        `https://gorest.co.in/public/v2/users?access-token=${accessToken}`
       );
+      const user_id = response?.data[0].id;
+      sessionStorage.setItem('user_id', user_id);
       return response.status === 200;
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Error Fetching Data');
@@ -72,10 +74,10 @@ export default function Home() {
             <Input
               size="large"
               name="token"
-              placeholder="Go Rest Token"
+              placeholder="GoRest Token"
               onChange={handleChange}
               value={formData.token}
-              aria-label="Go Rest Token"
+              aria-label="GoRest Token"
             />
             <Button
               loading={loading}

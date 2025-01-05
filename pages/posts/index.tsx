@@ -22,7 +22,7 @@ const fetchPosts = async (page: number, perPage: number, token: string): Promise
   return response.data;
 };
 
-const createPost = async (token: string, data: { title: string; body: string }) => {
+const createPost = async (token: string, data: { user_id: number; title: string; body: string }) => {
   const response = await axiosInstance.post(`/posts`, data, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -54,6 +54,7 @@ const Posts = () => {
   const [perPage, setPerPage] = useState<number>(10);
   const [token, setToken] = useState<string | null>(null);
   const [name, setName] = useState<string>('');
+  const [userId, setUserId] = useState<number | null>(null);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
@@ -65,7 +66,9 @@ const Posts = () => {
   useEffect(() => {
     const name = sessionStorage.getItem('name');
     const accessToken = sessionStorage.getItem('access_token');
+    const userId = sessionStorage.getItem('user_id');
     setName(name);
+    setUserId(userId);
     setToken(accessToken);
   }, []);
 
@@ -93,22 +96,15 @@ const Posts = () => {
     setIsModalVisible(false);
   };
 
-  let currentId = 0;
-  const generateId = () => {
-    currentId += 1;
-    return currentId.toString().padStart(5, '0');
-  };
-
   const handleCreatePost = async () => {
-    const id = generateId();
     try {
       const values = await createForm.validateFields();
       const postData = {
-        id,
+        user_id: userId,
         title: values.title,
         body: values.body,
       }
-      await createPost(token as string, values);
+      await createPost(token as string, postData);
       message.success('Post created successfully');
       setIsCreateModalVisible(false);
       createForm.resetFields();
